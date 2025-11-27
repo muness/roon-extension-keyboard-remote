@@ -83,18 +83,10 @@ source "vmware-iso" "alpine" {
   ]
 
   vmx_data = {
-    "firmware"                     = "efi"
-    "ethernet0.networkName"        = "NAT"
-    "ehci.present"                 = "TRUE"
-    "usb_xhci.present"             = "TRUE"
-    "sharedFolder0.present"        = "TRUE"
-    "sharedFolder0.enabled"        = "TRUE"
-    "sharedFolder0.readAccess"     = "TRUE"
-    "sharedFolder0.writeAccess"    = "TRUE"
-    "sharedFolder0.hostPath"       = "/Users/muness1/src/roon-extension-keyboard-remote"
-    "sharedFolder0.guestName"      = "project"
-    "sharedFolder0.expiration"     = "never"
-    "isolation.tools.hgfs.disable" = "FALSE"
+    "firmware"             = "efi"
+    "ethernet0.networkName" = "NAT"
+    "ehci.present"         = "TRUE"
+    "usb_xhci.present"     = "TRUE"
   }
 }
 
@@ -127,15 +119,6 @@ build {
 
       "# Enable VMware time sync",
       "vmware-toolbox-cmd timesync enable",
-
-      "# Create mount point for shared folder",
-      "mkdir -p /mnt/hgfs",
-
-      "# Mount shared folder",
-      "/usr/bin/vmhgfs-fuse .host:/project /mnt/hgfs -o subtype=vmhgfs-fuse,allow_other",
-
-      "# Add to fstab for auto-mount on boot",
-      "echo '.host:/project /mnt/hgfs fuse.vmhgfs-fuse allow_other 0 0' >> /etc/fstab",
 
       "echo 'Setup complete! VM ready for development.'"
     ]

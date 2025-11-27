@@ -70,30 +70,58 @@ Other useful commands:
 # Check if VM is running
 vmrun -T fusion list
 
-# Stop the VM
+# Stop the VM (graceful shutdown)
 vmrun -T fusion stop output-alpine/roon-remote-alpine.vmx
+
+# Stop the VM (force stop if graceful shutdown hangs)
+vmrun -T fusion stop output-alpine/roon-remote-alpine.vmx hard
 
 # Power off from inside VM
 ssh root@<VM_IP> poweroff
 ```
 
-#### Working with Code in the VM
+#### Configure Shared Folders (One-Time Setup)
 
-Your Mac's project directory is automatically mounted at `/mnt/hgfs` in the VM via VMware shared folders. You can:
+VMware shared folders must be configured through the GUI:
 
-1. **Edit files on your Mac** using any editor (VS Code, vim, etc.)
-2. **Run code in the VM** where it has Bluetooth support
+1. Open VMware Fusion
+2. Select the VM and go to Settings > Sharing
+3. Enable "Share folders from Mac"
+4. Add your source directory (e.g., `/Users/yourusername/src`)
+5. Name it (e.g., "src")
 
-SSH into the VM and work directly on the shared folder:
+#### Mount Shared Folders in the VM
+
+After configuring shared folders in the GUI, mount them in the VM:
+
 ```bash
+# SSH into the VM
 ssh root@<VM_IP>
-cd /mnt/hgfs
+
+# Create mount point
+mkdir -p /mnt/hgfs
+
+# Mount shared folders
+/usr/bin/vmhgfs-fuse .host:/ /mnt/hgfs -o allow_other
+
+# Verify - you should see your shared directories
+ls /mnt/hgfs
+```
+
+To auto-mount on boot, add to `/etc/fstab`:
+```
+.host:/ /mnt/hgfs fuse.vmhgfs-fuse defaults,allow_other 0 0
+```
+
+Now you can edit files on your Mac and run them in the VM:
+```bash
+cd /mnt/hgfs/your-project
 node keyboard-remote.js
 ```
 
-**Alternative: VS Code Remote-SSH**
+#### VS Code Remote-SSH (Recommended)
 
-For a full remote development experience:
+For the best development experience:
 
 1. **Install VS Code Remote-SSH extension** on your Mac
 
@@ -107,7 +135,9 @@ For a full remote development experience:
 3. **Connect via VS Code**:
    - Press `Cmd+Shift+P` and search for "Remote-SSH: Connect to Host"
    - Select `alpine-dev`
-   - Open `/mnt/hgfs` folder in VS Code
+   - Open `/mnt/hgfs/your-project` folder in VS Code
+
+This gives you full IDE features while running code in the VM with Bluetooth support.
 
 #### Connecting Your Bluetooth Remote
 
