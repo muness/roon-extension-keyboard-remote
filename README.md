@@ -26,13 +26,13 @@ For development with a Bluetooth remote control that needs exclusive device acce
 
 2. **Create and provision the VM**
    ```bash
-   packer init alpine-vm.pkr.hcl
-   packer build alpine-vm.pkr.hcl
+   packer init dev.pkr.hcl
+   packer build dev.pkr.hcl
    ```
 
    **Note:** Defaults to Apple Silicon (aarch64). For Intel Macs, use:
    ```bash
-   packer build -var="alpine_arch=x86_64" alpine-vm.pkr.hcl
+   packer build -var="alpine_arch=x86_64" dev.pkr.hcl
    ```
 
    This single command automatically:
@@ -45,6 +45,35 @@ For development with a Bluetooth remote control that needs exclusive device acce
    - Shows you the IP address
 
    That's it! The VM is ready to use.
+
+#### Starting the VM (Subsequent Uses)
+
+After the initial setup, you can start the VM again using:
+
+```bash
+vmrun -T fusion start output-alpine/roon-remote-alpine.vmx nogui
+```
+
+To get the VM's IP address:
+
+```bash
+vmrun -T fusion getGuestIPAddress output-alpine/roon-remote-alpine.vmx -wait
+```
+
+Other useful commands:
+
+```bash
+# Check if VM is running
+vmrun -T fusion list
+
+# Stop the VM
+vmrun -T fusion stop output-alpine/roon-remote-alpine.vmx
+
+# Suspend the VM
+vmrun -T fusion suspend output-alpine/roon-remote-alpine.vmx
+```
+
+Your local code changes are automatically synced to the VM via shared folders at `/root/extension`.
 
 #### Connecting Your Bluetooth Remote
 
