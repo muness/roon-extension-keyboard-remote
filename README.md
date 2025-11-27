@@ -54,10 +54,14 @@ After the initial setup, you can start the VM again using:
 vmrun -T fusion start output-alpine/roon-remote-alpine.vmx nogui
 ```
 
-To get the VM's IP address:
+To find the VM's IP address:
 
 ```bash
-vmrun -T fusion getGuestIPAddress output-alpine/roon-remote-alpine.vmx -wait
+# Check DHCP leases
+cat /var/db/vmware/vmnet-dhcpd-vmnet8.leases | grep lease | tail -5
+
+# Or start with GUI to see console
+vmrun -T fusion start output-alpine/roon-remote-alpine.vmx gui
 ```
 
 Other useful commands:
@@ -69,11 +73,41 @@ vmrun -T fusion list
 # Stop the VM
 vmrun -T fusion stop output-alpine/roon-remote-alpine.vmx
 
-# Suspend the VM
-vmrun -T fusion suspend output-alpine/roon-remote-alpine.vmx
+# Power off from inside VM
+ssh root@<VM_IP> poweroff
 ```
 
-Your local code changes are automatically synced to the VM via shared folders at `/root/extension`.
+#### Working with Code in the VM
+
+Your Mac's project directory is automatically mounted at `/mnt/hgfs` in the VM via VMware shared folders. You can:
+
+1. **Edit files on your Mac** using any editor (VS Code, vim, etc.)
+2. **Run code in the VM** where it has Bluetooth support
+
+SSH into the VM and work directly on the shared folder:
+```bash
+ssh root@<VM_IP>
+cd /mnt/hgfs
+node keyboard-remote.js
+```
+
+**Alternative: VS Code Remote-SSH**
+
+For a full remote development experience:
+
+1. **Install VS Code Remote-SSH extension** on your Mac
+
+2. **Add the VM to your SSH config** (`~/.ssh/config`):
+   ```
+   Host alpine-dev
+     HostName <VM_IP>
+     User root
+   ```
+
+3. **Connect via VS Code**:
+   - Press `Cmd+Shift+P` and search for "Remote-SSH: Connect to Host"
+   - Select `alpine-dev`
+   - Open `/mnt/hgfs` folder in VS Code
 
 #### Connecting Your Bluetooth Remote
 

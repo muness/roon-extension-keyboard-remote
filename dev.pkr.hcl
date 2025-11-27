@@ -42,7 +42,7 @@ source "vmware-iso" "alpine" {
 
   ssh_username         = "root"
   ssh_password         = "root"
-  ssh_timeout          = "20m"
+  ssh_timeout          = "2m"
 
   shutdown_command     = "poweroff"
 
@@ -50,13 +50,20 @@ source "vmware-iso" "alpine" {
 
   vnc_disable_password = true
   vnc_bind_address     = "127.0.0.1"
-  vnc_port_min         = 5900
-  vnc_port_max         = 5900
+  vnc_port_min         = 5901
+  vnc_port_max         = 5910
 
   boot_key_interval    = "10ms"
   boot_keygroup_interval = "100ms"
 
   boot_wait            = "10s"
+
+  keep_registered      = true
+  skip_export          = true
+  skip_compaction      = true
+  cleanup_remote_cache = false
+  version              = 22
+
   boot_command         = [
     "root<enter><wait5>",
     "ip link set eth0 up<enter><wait>",
@@ -69,6 +76,7 @@ source "vmware-iso" "alpine" {
     "y<enter><wait15>",
     "mount /dev/nvme0n1p3 /mnt<enter><wait>",
     "sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /mnt/etc/ssh/sshd_config<enter><wait>",
+    "sed -i 's/^AllowTcpForwarding.*/AllowTcpForwarding yes/' /mnt/etc/ssh/sshd_config<enter><wait>",
     "umount /mnt<enter><wait>",
     "reboot<enter>",
 
@@ -83,8 +91,8 @@ source "vmware-iso" "alpine" {
     "sharedFolder0.enabled"        = "TRUE"
     "sharedFolder0.readAccess"     = "TRUE"
     "sharedFolder0.writeAccess"    = "TRUE"
-    "sharedFolder0.hostPath"       = "."
-    "sharedFolder0.guestName"      = "extension"
+    "sharedFolder0.hostPath"       = "/Users/muness1/src/roon-extension-keyboard-remote"
+    "sharedFolder0.guestName"      = "project"
     "sharedFolder0.expiration"     = "never"
     "isolation.tools.hgfs.disable" = "FALSE"
   }
@@ -101,50 +109,56 @@ build {
       "# Update package cache",
       "apk update",
 
-      "# Install required packages (including open-vm-tools for shared folders)",
-      "apk add nodejs npm git bluez bluez-deprecated open-vm-tools open-vm-tools-hgfs",
+      "# Install required packages",
+      "apk add nodejs npm git bluez bluez-deprecated open-vm-tools open-vm-tools-guestinfo open-vm-tools-deploypkg open-vm-tools-hgfs fuse3",
+
+      "# Load fuse module",
+      "modprobe fuse",
+      "echo fuse >> /etc/modules",
 
       "# Enable and start services",
-      "rc-update add bluetooth",
-      "rc-update add sshd",
-      "rc-update add open-vm-tools",
-      "service open-vm-tools start",
+      "rc-update add bluetooth default",
+      "rc-update add sshd default",
+      "rc-update add open-vm-tools boot",
 
-      "# Load FUSE kernel module",
-      "modprobe fuse",
+      "# Disable chronyd since VMware Tools handles time sync",
+      "rc-update del chronyd default 2>/dev/null || true",
+      "service chronyd stop 2>/dev/null || true",
+
+      "# Enable VMware time sync",
+      "vmware-toolbox-cmd timesync enable",
+
+      "# Create mount point for shared folder",
+      "mkdir -p /mnt/hgfs",
 
       "# Mount shared folder",
-      "mkdir -p /mnt/hgfs/extension",
-      "vmhgfs-fuse .host:/extension /mnt/hgfs/extension -o allow_other",
+      "/usr/bin/vmhgfs-fuse .host:/project /mnt/hgfs -o subtype=vmhgfs-fuse,allow_other",
 
-      "# Create symlink for convenience",
-      "ln -s /mnt/hgfs/extension /root/extension",
+      "# Add to fstab for auto-mount on boot",
+      "echo '.host:/project /mnt/hgfs fuse.vmhgfs-fuse allow_other 0 0' >> /etc/fstab",
 
-      "# Install npm dependencies in shared folder",
-      "cd /mnt/hgfs/extension && npm install",
-
-      "echo 'Setup complete! Extension mounted at /mnt/hgfs/extension'"
+      "echo 'Setup complete! VM ready for development.'"
     ]
   }
 
   post-processor "shell-local" {
     inline = [
       "echo '✅ VM created and provisioned!'",
-      "echo 'Starting VM...'",
-      "vmrun -T fusion start output-alpine/${var.vm_name}.vmx nogui",
-      "sleep 10",
-      "VM_IP=$(vmrun -T fusion getGuestIPAddress output-alpine/${var.vm_name}.vmx -wait)",
-      "echo \"\"",
-      "echo \"🎉 All done! VM is running at: $VM_IP\"",
-      "echo \"\"",
-      "echo \"To use the extension:\"",
-      "echo \"  1. Connect your Bluetooth remote in VMware Fusion (Virtual Machine > USB & Bluetooth)\"",
-      "echo \"  2. SSH into VM: ssh root@$VM_IP (password: root)\"",
-      "echo \"  3. Run: cd /root/extension && node keyboard-remote.js\"",
-      "echo \"  4. Enable in Roon (Settings > Extensions)\"",
-      "echo \"\"",
-      "echo \"Your local code is mounted at /root/extension in the VM!\"",
-      "echo \"Edit files on your Mac and changes appear in the VM instantly.\"",
+      "echo ''",
+      "echo 'To start the VM:'",
+      "echo '  vmrun -T fusion start output-alpine/${var.vm_name}.vmx nogui'",
+      "echo ''",
+      "echo 'To find the VM IP:'",
+      "echo '  cat /var/db/vmware/vmnet-dhcpd-vmnet8.leases | grep lease | tail -5'",
+      "echo ''",
+      "echo 'For VS Code development:'",
+      "echo '  1. Install Remote-SSH extension in VS Code'",
+      "echo '  2. Add to ~/.ssh/config:'",
+      "echo '       Host alpine-dev'",
+      "echo '         HostName <VM_IP>'",
+      "echo '         User root'",
+      "echo '  3. Connect via VS Code Remote-SSH to alpine-dev'",
+      "echo '  4. Copy your project files to /root in the VM'",
     ]
   }
 }
