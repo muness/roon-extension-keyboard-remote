@@ -75,7 +75,8 @@ source "vmware-iso" "debian" {
 
   vmx_data = {
     "firmware"                     = "efi"
-    "ethernet0.networkName"        = "NAT"
+    "ethernet0.networkName"        = "Bridged"
+    "ethernet0.connectionType"     = "bridged"
     "ehci.present"                 = "TRUE"
     "usb_xhci.present"             = "TRUE"
     "sharedFolder.maxNum"          = "1"
@@ -98,15 +99,23 @@ build {
       "# Wait for system to stabilize",
       "sleep 10",
 
+      "# Enable non-free-firmware repository for Bluetooth firmware",
+      "echo 'deb http://deb.debian.org/debian trixie non-free-firmware' >> /etc/apt/sources.list",
+
       "# Update package cache",
       "apt-get update",
 
       "# Install required packages",
       "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \\",
       "  nodejs npm git \\",
-      "  bluez bluetooth \\",
+      "  bluez bluetooth dbus \\",
       "  open-vm-tools open-vm-tools-desktop \\",
+      "  firmware-realtek \\",
       "  fuse3",
+
+      "# Configure Bluetooth with experimental mode for BLE HID support",
+      "sed -i 's|^ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' /lib/systemd/system/bluetooth.service",
+      "systemctl daemon-reload",
 
       "# Enable and start Bluetooth",
       "systemctl enable bluetooth",
@@ -127,7 +136,15 @@ build {
       "# Enable VMware time sync",
       "vmware-toolbox-cmd timesync enable || true",
 
-      "echo 'Setup complete! VM ready for development.'"
+      "# Install bluetuith TUI for Bluetooth management",
+      "wget -q https://github.com/darkhz/bluetuith/releases/download/v0.2.5/bluetuith_0.2.5_Linux_arm64.tar.gz -O /tmp/bluetuith.tar.gz",
+      "tar -xzf /tmp/bluetuith.tar.gz -C /tmp",
+      "mv /tmp/bluetuith /usr/local/bin/",
+      "chmod +x /usr/local/bin/bluetuith",
+      "rm /tmp/bluetuith.tar.gz",
+
+      "echo 'Setup complete! VM ready for development.'",
+      "echo 'Use bluetuith for Bluetooth management'"
     ]
   }
 
@@ -139,7 +156,7 @@ build {
       "echo '  vmrun -T fusion start output-debian/${var.vm_name}.vmx nogui'",
       "echo ''",
       "echo 'To find the VM IP:'",
-      "echo '  cat /var/db/vmware/vmnet-dhcpd-vmnet8.leases | grep lease | tail -5'",
+      "echo '  cat /var/db/vmware/vmnet-dhcpd-vmnet8.leases | grep \"lease \" | tail -n1'",
       "echo ''",
       "echo 'To enable shared folders:'",
       "echo '  1. Open VMware Fusion > VM Settings > Sharing'",

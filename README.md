@@ -9,9 +9,11 @@ Roon Bridge, although may work on other Linux platforms with a recent NodeJS and
 
 ## Local Development Setup
 
-### VMware Fusion VM with Alpine Linux
+### VMware Fusion VM with Debian Trixie
 
-For development with a Bluetooth remote control that needs exclusive device access, use a lightweight Alpine Linux VM on VMware Fusion. This provides reliable Bluetooth/USB passthrough that macOS lacks.
+For development with a Bluetooth remote control that needs exclusive device access, use a lightweight Debian Trixie VM on VMware Fusion. This provides reliable Bluetooth/USB passthrough that macOS lacks.
+
+**Note:** BlueZ requires the `--experimental` flag to properly create input devices for BLE HID devices like the FiiO RM3.
 
 #### Initial Setup
 
@@ -141,30 +143,64 @@ This gives you full IDE features while running code in the VM with Bluetooth sup
 
 #### Connecting Your Bluetooth Remote
 
-1. **Pair Bluetooth Remote on macOS First**
-   - Pair your Bluetooth remote/keyboard with macOS normally
-   - Go to System Settings > Bluetooth
-   - Pair your device
+**IMPORTANT: BlueZ Experimental Mode Required**
 
-2. **Pass Through Bluetooth Device to VM**
-   - In VMware Fusion, go to Virtual Machine > USB & Bluetooth
-   - Check "Enable Bluetooth"
-   - Select your Bluetooth remote from the list
-   - OR if using a USB Bluetooth dongle:
-     - Plug in the dongle
-     - Go to Virtual Machine > USB & Bluetooth > USB Devices
-     - Connect the USB Bluetooth adapter
+For BLE HID devices (like the FiiO RM3), BlueZ needs the `--experimental` flag to properly create input devices:
+
+```bash
+# Edit the bluetooth service file
+nano /lib/systemd/system/bluetooth.service
+
+# Find the ExecStart line and add --experimental:
+ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental
+
+# Reload and restart
+systemctl daemon-reload
+systemctl restart bluetooth
+```
+
+**Connecting a USB Bluetooth Adapter (e.g., TP-Link UBH4A)**
+
+1. **Pass Through USB Bluetooth Adapter to VM**
+   - Plug in the USB Bluetooth adapter to your Mac
+   - In VMware Fusion, go to Virtual Machine > USB & Bluetooth > USB Devices
+   - Connect the USB Bluetooth adapter to the VM
+   - **Note:** You'll need to reconnect the USB adapter via the GUI each time you start the VM
+
+2. **Pair and Connect the BLE Remote in the VM**
+   ```bash
+   # SSH into the VM
+   ssh root@<VM_IP>
+
+   # Start bluetoothctl
+   bluetoothctl
+
+   # In bluetoothctl:
+   scan on
+   # Wait for your device to appear (e.g., FiiO RM3)
+   pair F4:4F:16:00:2C:D8  # Use your device's MAC address
+   trust F4:4F:16:00:2C:D8
+   connect F4:4F:16:00:2C:D8
+   exit
+   ```
 
 3. **Verify Device in VM**
    ```bash
-   # List input devices
+   # List input devices - should see FiiO RM3 Consumer Control, Keyboard, etc.
    ls -la /dev/input/
 
-   # You should see event devices (event0, event1, etc.)
-   # Test which one is your remote
-   sudo evtest
-   # Select your device number and press buttons to verify
+   # Test which event device is the remote
+   evtest
+   # Select event3 (Consumer Control) and press buttons to verify
    ```
+
+4. **Run the Bridge and Extension**
+   ```bash
+   cd /mnt/hgfs/src/roon-extension-keyboard-remote
+   node fiio-bridge.js | node keyboard-remote.js
+   ```
+
+   The bridge reads from `/dev/input/event3` and converts button presses to characters that keyboard-remote.js understands.
 
 #### Troubleshooting
 

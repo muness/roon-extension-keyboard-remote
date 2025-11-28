@@ -6,6 +6,7 @@
     "author": "Martin Maisey",
     "license": "MIT",
     "dependencies": {
+        "@abandonware/noble": "^1.9.2-26",
         "node-roon-api": "github:roonlabs/node-roon-api",
         "node-roon-api-settings": "github:roonlabs/node-roon-api-settings",
         "node-roon-api-status": "github:roonlabs/node-roon-api-status",

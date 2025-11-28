@@ -237,7 +237,9 @@ function init() {
 
     // Set up event handling for key capture from stdin
     var stdin = process.stdin;
-    stdin.setRawMode(true);
+    if (stdin.setRawMode) {
+        stdin.setRawMode(true);
+    }
     stdin.resume();
     stdin.setEncoding('utf8');
     stdin.on('data', key_press);
